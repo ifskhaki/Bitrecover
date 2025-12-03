@@ -1,0 +1,39 @@
+{
+    "email": {
+        "enabled": true,
+        "send_startup_email": false,
+        "send_match_email": true,
+        "smtp_server": "smtp.gmail.com",
+        "smtp_port": 587,
+        "username": "your_email@gmail.com",
+        "password": "your_password",
+        "recipients": [
+            "1email@gmail.com",
+            "2email@gmail.com",
+            "3email@gmail.com"
+        ]
+    },
+    "gpu": {
+        "use_all_gpus": true,
+        "gpu_ids": [],
+        "auto_optimize": true,
+        "threads_per_block": 256,
+        "blocks": 0,
+        "points_per_thread": 32
+    },
+    "search": {
+        "targets_file": "address.txt",
+        "output_file": "Success.txt",
+        "compression": "UNCOMPRESSED",
+        "random256": true,
+        "status_interval_ms": 1000,
+        "checkpoint_file": "",
+        "checkpoint_interval_ms": 60000
+    },
+    "display": {
+        "real_time": true,
+        "update_interval_ms": 100,
+        "show_gpu_details": true,
+        "clear_screen": true
+    }
+}
