@@ -1,0 +1,68 @@
+# Build directories
+build/
+bin/
+lib/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# Compiled files
+*.class
+*.pyc
+__pycache__/
+
+# Logs
+*.log
+*.out
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# OS files
+Thumbs.db
+desktop.ini
+
+# Results (optional - uncomment if you don't want to track)
+# Success.txt
+# *.txt
+# !address.txt
+
+# Keep config and address files in repo
+!config/config.json
+!address.txt
+
+# Python virtual environments
+venv/
+env/
+.venv/
+
+# CUDA files
+*.ptx
+*.cubin
+
+# Test files
+test_results/
+*.test
+
