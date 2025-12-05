@@ -13,6 +13,7 @@
 #include <functional>
 #include <mutex>
 #include <set>
+#include <memory>
 
 class MultiGPUManager {
 public:
@@ -34,24 +35,57 @@ public:
 
 private:
     struct GPUWorker {
-        int gpuId;
-        KeySearchDevice* device;
-        KeyFinder* finder;
-        std::thread thread;
-        std::atomic<bool> running;
-        std::atomic<uint64_t> keysProcessed;
-        std::atomic<double> speedMKeysPerSec;
+        int gpuId = 0;
+        KeySearchDevice* device = nullptr;
+        KeyFinder* finder = nullptr;
+        std::unique_ptr<std::thread> thread;
+        bool running = false;
+        uint64_t keysProcessed = 0;
+        double speedMKeysPerSec = 0.0;
         bitrecover::GPUStats stats;
+        
+        GPUWorker() = default;
+        GPUWorker(GPUWorker&& other) noexcept 
+            : gpuId(other.gpuId)
+            , device(other.device)
+            , finder(other.finder)
+            , thread(std::move(other.thread))
+            , running(other.running)
+            , keysProcessed(other.keysProcessed)
+            , speedMKeysPerSec(other.speedMKeysPerSec)
+            , stats(other.stats)
+        {
+            other.device = nullptr;
+            other.finder = nullptr;
+        }
+        GPUWorker& operator=(GPUWorker&& other) noexcept {
+            if (this != &other) {
+                gpuId = other.gpuId;
+                device = other.device;
+                finder = other.finder;
+                thread = std::move(other.thread);
+                running = other.running;
+                keysProcessed = other.keysProcessed;
+                speedMKeysPerSec = other.speedMKeysPerSec;
+                stats = other.stats;
+                other.device = nullptr;
+                other.finder = nullptr;
+            }
+            return *this;
+        }
+        // Prevent copying
+        GPUWorker(const GPUWorker&) = delete;
+        GPUWorker& operator=(const GPUWorker&) = delete;
     };
     
     std::vector<GPUWorker> workers_;
     std::function<void(const ::KeySearchResult&, int)> resultCallback_;
     std::function<void(const bitrecover::GPUStats&)> statusCallback_;
-    std::mutex statsMutex_;
+    mutable std::mutex statsMutex_;
+    std::atomic<bool> stopRequested_{false};
     
-    void workerThread(int gpuId, const bitrecover::Config::SearchConfig& config);
+    void workerThread(int workerIndex, const bitrecover::Config::SearchConfig& config);
     std::string getDeviceTypeName(const DeviceManager::DeviceInfo& device);
 };
 
 #endif // MULTI_GPU_MANAGER_H
-

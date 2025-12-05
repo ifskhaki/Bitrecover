@@ -48,8 +48,8 @@ bool MultiGPUManager::initializeAllGPUs(const std::string& targetsFile,
             return false;
         }
         
-        // Load targets
-        std::set<KeySearchTarget> targets;
+        // Load targets as vector of strings (addresses)
+        std::vector<std::string> targetAddresses;
         std::ifstream file(targetsFile);
         if (file.is_open()) {
             std::string line;
@@ -59,16 +59,16 @@ bool MultiGPUManager::initializeAllGPUs(const std::string& targetsFile,
                 line.erase(line.find_last_not_of(" \t\r\n") + 1);
                 
                 if (!line.empty()) {
-                    // Convert address to hash160
-                    unsigned int hash[5];
-                    Base58::toHash160(line, hash);
-                    KeySearchTarget target(hash);
-                    targets.insert(target);
+                    targetAddresses.push_back(line);
                 }
             }
             file.close();
         } else {
             Logger::log(LogLevel::Warning, "Could not open targets file: " + targetsFile);
+        }
+        
+        if (targetAddresses.empty()) {
+            Logger::log(LogLevel::Warning, "No target addresses loaded");
         }
         
         // Initialize workers
@@ -82,12 +82,18 @@ bool MultiGPUManager::initializeAllGPUs(const std::string& targetsFile,
             worker.keysProcessed = 0;
             worker.speedMKeysPerSec = 0.0;
             
-            // Create device
+            // Get GPU parameters with defaults
+            int threads = gpuConfig.threadsPerBlock > 0 ? gpuConfig.threadsPerBlock : 256;
+            int pointsPerThread = gpuConfig.pointsPerThread > 0 ? gpuConfig.pointsPerThread : 256;
+            int blocks = gpuConfig.blocks > 0 ? gpuConfig.blocks : 0; // 0 = auto
+            
+            // Create device based on type
             if (deviceInfo.type == DeviceManager::DeviceType::CUDA) {
-                worker.device = new CudaKeySearchDevice(deviceInfo.id);
+                // CudaKeySearchDevice(int device, int threads, int pointsPerThread, int blocks = 0)
+                worker.device = new CudaKeySearchDevice(deviceInfo.id, threads, pointsPerThread, blocks);
             } else if (deviceInfo.type == DeviceManager::DeviceType::OpenCL) {
 #ifdef WE_HAVE_OPENCL
-                worker.device = new CLKeySearchDevice(deviceInfo.id, config.gpu.threadsPerBlock, config.gpu.pointsPerThread, config.gpu.blocks);
+                worker.device = new CLKeySearchDevice(deviceInfo.id, threads, pointsPerThread, blocks);
 #else
                 Logger::log(LogLevel::Warning, "OpenCL support not compiled. Skipping device " + std::to_string(deviceInfo.id));
                 continue;
@@ -112,10 +118,13 @@ bool MultiGPUManager::initializeAllGPUs(const std::string& targetsFile,
                 compression = 2;
             }
             
+            // KeyFinder(startKey, endKey, compression, device, stride)
             worker.finder = new KeyFinder(startKey, endKey, compression, worker.device, stride);
-            worker.finder->setTargets(targets);
             
-            workers_.push_back(worker);
+            // Set targets using vector<string> overload
+            worker.finder->setTargets(targetAddresses);
+            
+            workers_.push_back(std::move(worker));
             
             Logger::log(LogLevel::Info, 
                 "Initialized GPU " + std::to_string(deviceInfo.id) + ": " + deviceInfo.name);
@@ -125,80 +134,99 @@ bool MultiGPUManager::initializeAllGPUs(const std::string& targetsFile,
     } catch (const std::exception& e) {
         Logger::log(LogLevel::Error, "Failed to initialize GPUs: " + std::string(e.what()));
         return false;
+    } catch (const DeviceManager::DeviceManagerException& e) {
+        Logger::log(LogLevel::Error, "Failed to initialize GPUs: " + e.msg);
+        return false;
     }
 }
 
 void MultiGPUManager::startParallelSearch(const bitrecover::Config::SearchConfig& config) {
-    for (auto& worker : workers_) {
+    stopRequested_ = false;
+    
+    for (size_t i = 0; i < workers_.size(); ++i) {
+        auto& worker = workers_[i];
         if (!worker.running) {
             worker.running = true;
-            worker.thread = std::thread(&MultiGPUManager::workerThread, this, worker.gpuId, config);
+            // Pass workerIndex instead of gpuId to find the right worker
+            worker.thread = std::make_unique<std::thread>(&MultiGPUManager::workerThread, this, static_cast<int>(i), config);
         }
     }
 }
 
-void MultiGPUManager::workerThread(int gpuId, const bitrecover::Config::SearchConfig& config) {
-    auto workerIt = std::find_if(workers_.begin(), workers_.end(),
-                                [gpuId](const GPUWorker& w) { return w.gpuId == gpuId; });
-    if (workerIt == workers_.end()) {
+void MultiGPUManager::workerThread(int workerIndex, const bitrecover::Config::SearchConfig& config) {
+    if (workerIndex < 0 || workerIndex >= static_cast<int>(workers_.size())) {
         return;
     }
     
-    GPUWorker& worker = *workerIt;
-    auto startTime = std::chrono::steady_clock::now();
-    auto lastStatusTime = startTime;
+    GPUWorker& worker = workers_[workerIndex];
     
-    while (worker.running) {
-        try {
-            worker.finder->doStep();
-            worker.keysProcessed++;
-            
-            auto now = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
-            if (elapsed > 0) {
-                worker.speedMKeysPerSec = (worker.keysProcessed * 1000.0) / elapsed / 1000000.0;
+    try {
+        // Initialize the finder
+        worker.finder->init();
+        
+        // Set up callbacks for the KeyFinder
+        // Note: KeyFinder's run() is blocking and handles its own loop
+        // We use callbacks set via setResultCallback and setStatusCallback
+        
+        worker.finder->setResultCallback([this, workerIndex](KeySearchResult result) {
+            if (resultCallback_) {
+                resultCallback_(result, workers_[workerIndex].gpuId);
             }
+        });
+        
+        worker.finder->setStatusCallback([this, workerIndex](KeySearchStatus status) {
+            GPUWorker& w = workers_[workerIndex];
+            w.keysProcessed = status.total;
+            w.speedMKeysPerSec = status.speed / 1000000.0; // Convert to MKeys/s
             
-            // Update stats periodically
-            if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastStatusTime).count() 
-                >= config.statusIntervalMs) {
-                worker.stats.gpuId = worker.gpuId;
-                worker.stats.keysProcessed = worker.keysProcessed;
-                worker.stats.speedMKeysPerSec = worker.speedMKeysPerSec;
-                worker.stats.isRunning = worker.running;
-                worker.stats.utilizationPercent = 95.0; // Simplified
-                
-                if (statusCallback_) {
-                    statusCallback_(worker.stats);
-                }
-                
-                lastStatusTime = now;
+            // Update stats
+            w.stats.gpuId = w.gpuId;
+            w.stats.keysProcessed = w.keysProcessed;
+            w.stats.speedMKeysPerSec = w.speedMKeysPerSec;
+            w.stats.isRunning = w.running;
+            w.stats.utilizationPercent = 95.0; // Approximate
+            
+            if (statusCallback_) {
+                statusCallback_(w.stats);
             }
-            
-            // Check for results
-            std::vector<::KeySearchResult> results = worker.finder->getResults();
-            for (const auto& result : results) {
-                if (resultCallback_) {
-                    resultCallback_(result, worker.gpuId);
-                }
-            }
-            
-        } catch (const std::exception& e) {
-            Logger::log(LogLevel::Error, "GPU " + std::to_string(gpuId) + " error: " + e.what());
-            break;
-        }
+        });
+        
+        // Run the search - this is blocking
+        worker.finder->run();
+        
+    } catch (const std::exception& e) {
+        Logger::log(LogLevel::Error, "GPU " + std::to_string(worker.gpuId) + " error: " + e.what());
     }
+    
+    worker.running = false;
 }
 
 void MultiGPUManager::stopAll() {
+    stopRequested_ = true;
+    
+    // Stop all finders
     for (auto& worker : workers_) {
-        worker.running = false;
-        if (worker.thread.joinable()) {
-            worker.thread.join();
+        if (worker.finder) {
+            worker.finder->stop();
         }
-        delete worker.finder;
-        delete worker.device;
+        worker.running = false;
     }
+    
+    // Join all threads
+    for (auto& worker : workers_) {
+        if (worker.thread && worker.thread->joinable()) {
+            worker.thread->join();
+        }
+    }
+    
+    // Clean up
+    for (auto& worker : workers_) {
+        delete worker.finder;
+        worker.finder = nullptr;
+        delete worker.device;
+        worker.device = nullptr;
+    }
+    
     workers_.clear();
 }
 
@@ -236,4 +264,3 @@ std::string MultiGPUManager::getDeviceTypeName(const DeviceManager::DeviceInfo& 
     }
     return "Unknown";
 }
-

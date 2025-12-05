@@ -27,7 +27,7 @@ namespace secp256k1 {
 			std::string t = s;
 
 			// 0x prefix
-			if(t.length() >= 2 && (t[0] == '0' && t[1] == 'x' || t[1] == 'X')) {
+			if(t.length() >= 2 && t[0] == '0' && (t[1] == 'x' || t[1] == 'X')) {
 				t = t.substr(2);
 			}
 
