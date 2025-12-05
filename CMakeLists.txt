@@ -113,6 +113,7 @@ set(LEGACY_SOURCES
     ${PROJECT_ROOT}/AddressUtil/hash.cpp
     ${PROJECT_ROOT}/CryptoUtil/sha256.cpp
     ${PROJECT_ROOT}/CryptoUtil/ripemd160.cpp
+    ${PROJECT_ROOT}/CryptoUtil/checksum.cpp
     ${PROJECT_ROOT}/CryptoUtil/Rng.cpp
     ${PROJECT_ROOT}/CryptoUtil/hash.cpp
     ${PROJECT_ROOT}/secp256k1lib/secp256k1.cpp
@@ -222,6 +223,7 @@ set(ADDRGEN_SOURCES
     ${PROJECT_ROOT}/AddressUtil/hash.cpp
     ${PROJECT_ROOT}/CryptoUtil/sha256.cpp
     ${PROJECT_ROOT}/CryptoUtil/ripemd160.cpp
+    ${PROJECT_ROOT}/CryptoUtil/checksum.cpp
     ${PROJECT_ROOT}/CryptoUtil/Rng.cpp
     ${PROJECT_ROOT}/CryptoUtil/hash.cpp
     ${PROJECT_ROOT}/CmdParse/CmdParse.cpp
@@ -246,4 +248,3 @@ message(STATUS "C++ standard: ${CMAKE_CXX_STANDARD}")
 message(STATUS "CUDA standard: ${CMAKE_CUDA_STANDARD}")
 message(STATUS "=====================================")
 message(STATUS "")
-

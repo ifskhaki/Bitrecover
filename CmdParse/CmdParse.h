@@ -5,6 +5,22 @@
 #include <vector>
 
 class OptArg {
+
+public:
+
+	std::string option;
+	std::string arg;
+
+	bool equals(std::string shortForm, std::string longForm = "") const
+	{
+		return (shortForm.length() > 0 && option == shortForm) || option == longForm;
+	}
+};
+
+class ArgType {
+
+public:
+	std::string shortForm;
 	std::string longForm;
 	bool hasArg;
 
