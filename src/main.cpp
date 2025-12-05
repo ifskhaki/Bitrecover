@@ -2,6 +2,7 @@
 #include "Logger.h"
 #include "CmdParse.h"
 #include "util.h"
+#include "DeviceManager.h"
 #include <iostream>
 #include <string>
 
