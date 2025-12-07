@@ -8,6 +8,10 @@
 #include <windows.h>
 #else
 #include <unistd.h>
+#include <climits>
+#ifndef HOST_NAME_MAX
+#define HOST_NAME_MAX 256
+#endif
 #endif
 
 ConfigManager::ConfigManager() {
