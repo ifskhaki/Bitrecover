@@ -32,6 +32,10 @@ public:
     
     void setResultCallback(std::function<void(const ::KeySearchResult&, int)> callback);
     void setStatusCallback(std::function<void(const bitrecover::GPUStats&)> callback);
+    
+    // Called from static callbacks (public for access from static functions)
+    void handleResult(const ::KeySearchResult& result, int workerIndex);
+    void handleStatus(const ::KeySearchStatus& status, int workerIndex);
 
 private:
     struct GPUWorker {
@@ -73,7 +77,6 @@ private:
             }
             return *this;
         }
-        // Prevent copying
         GPUWorker(const GPUWorker&) = delete;
         GPUWorker& operator=(const GPUWorker&) = delete;
     };
@@ -84,7 +87,7 @@ private:
     mutable std::mutex statsMutex_;
     std::atomic<bool> stopRequested_{false};
     
-    void workerThread(int workerIndex, const bitrecover::Config::SearchConfig& config);
+    void workerThread(int workerIndex);
     std::string getDeviceTypeName(const DeviceManager::DeviceInfo& device);
 };
 

@@ -12,6 +12,28 @@
 #include <algorithm>
 #include <set>
 #include <cstring>
+#include <map>
+
+// Global state for callbacks (KeyFinder uses C-style function pointers, not std::function)
+static std::map<int, MultiGPUManager*> g_managerInstances;
+static std::mutex g_callbackMutex;
+static int g_currentWorkerIndex = -1;
+static MultiGPUManager* g_currentManager = nullptr;
+
+// Static callback wrappers for KeyFinder's C-style function pointer API
+static void staticResultCallback(KeySearchResult result) {
+    std::lock_guard<std::mutex> lock(g_callbackMutex);
+    if (g_currentManager && g_currentWorkerIndex >= 0) {
+        g_currentManager->handleResult(result, g_currentWorkerIndex);
+    }
+}
+
+static void staticStatusCallback(KeySearchStatus status) {
+    std::lock_guard<std::mutex> lock(g_callbackMutex);
+    if (g_currentManager && g_currentWorkerIndex >= 0) {
+        g_currentManager->handleStatus(status, g_currentWorkerIndex);
+    }
+}
 
 MultiGPUManager::MultiGPUManager() {
 }
@@ -89,7 +111,6 @@ bool MultiGPUManager::initializeAllGPUs(const std::string& targetsFile,
             
             // Create device based on type
             if (deviceInfo.type == DeviceManager::DeviceType::CUDA) {
-                // CudaKeySearchDevice(int device, int threads, int pointsPerThread, int blocks = 0)
                 worker.device = new CudaKeySearchDevice(deviceInfo.id, threads, pointsPerThread, blocks);
             } else if (deviceInfo.type == DeviceManager::DeviceType::OpenCL) {
 #ifdef WE_HAVE_OPENCL
@@ -105,7 +126,6 @@ bool MultiGPUManager::initializeAllGPUs(const std::string& targetsFile,
             
             // Generate random start key for this GPU
             secp256k1::uint256 startKey = rng.generateRandom256ForGPU(i, selectedDevices.size());
-            // Set endKey to maximum value (all 0xFFFFFFFF)
             unsigned int maxWords[8] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 
                                         0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
             secp256k1::uint256 endKey(maxWords, secp256k1::uint256::LittleEndian);
@@ -118,10 +138,7 @@ bool MultiGPUManager::initializeAllGPUs(const std::string& targetsFile,
                 compression = 2;
             }
             
-            // KeyFinder(startKey, endKey, compression, device, stride)
             worker.finder = new KeyFinder(startKey, endKey, compression, worker.device, stride);
-            
-            // Set targets using vector<string> overload
             worker.finder->setTargets(targetAddresses);
             
             workers_.push_back(std::move(worker));
@@ -140,20 +157,19 @@ bool MultiGPUManager::initializeAllGPUs(const std::string& targetsFile,
     }
 }
 
-void MultiGPUManager::startParallelSearch(const bitrecover::Config::SearchConfig& config) {
+void MultiGPUManager::startParallelSearch(const bitrecover::Config::SearchConfig& /*config*/) {
     stopRequested_ = false;
     
     for (size_t i = 0; i < workers_.size(); ++i) {
         auto& worker = workers_[i];
         if (!worker.running) {
             worker.running = true;
-            // Pass workerIndex instead of gpuId to find the right worker
-            worker.thread = std::make_unique<std::thread>(&MultiGPUManager::workerThread, this, static_cast<int>(i), config);
+            worker.thread = std::make_unique<std::thread>(&MultiGPUManager::workerThread, this, static_cast<int>(i));
         }
     }
 }
 
-void MultiGPUManager::workerThread(int workerIndex, const bitrecover::Config::SearchConfig& config) {
+void MultiGPUManager::workerThread(int workerIndex) {
     if (workerIndex < 0 || workerIndex >= static_cast<int>(workers_.size())) {
         return;
     }
@@ -161,35 +177,19 @@ void MultiGPUManager::workerThread(int workerIndex, const bitrecover::Config::Se
     GPUWorker& worker = workers_[workerIndex];
     
     try {
+        // Set up global state for static callbacks
+        {
+            std::lock_guard<std::mutex> lock(g_callbackMutex);
+            g_currentManager = this;
+            g_currentWorkerIndex = workerIndex;
+        }
+        
         // Initialize the finder
         worker.finder->init();
         
-        // Set up callbacks for the KeyFinder
-        // Note: KeyFinder's run() is blocking and handles its own loop
-        // We use callbacks set via setResultCallback and setStatusCallback
-        
-        worker.finder->setResultCallback([this, workerIndex](KeySearchResult result) {
-            if (resultCallback_) {
-                resultCallback_(result, workers_[workerIndex].gpuId);
-            }
-        });
-        
-        worker.finder->setStatusCallback([this, workerIndex](KeySearchStatus status) {
-            GPUWorker& w = workers_[workerIndex];
-            w.keysProcessed = status.total;
-            w.speedMKeysPerSec = status.speed / 1000000.0; // Convert to MKeys/s
-            
-            // Update stats
-            w.stats.gpuId = w.gpuId;
-            w.stats.keysProcessed = w.keysProcessed;
-            w.stats.speedMKeysPerSec = w.speedMKeysPerSec;
-            w.stats.isRunning = w.running;
-            w.stats.utilizationPercent = 95.0; // Approximate
-            
-            if (statusCallback_) {
-                statusCallback_(w.stats);
-            }
-        });
+        // Set static callbacks (KeyFinder uses C-style function pointers)
+        worker.finder->setResultCallback(staticResultCallback);
+        worker.finder->setStatusCallback(staticStatusCallback);
         
         // Run the search - this is blocking
         worker.finder->run();
@@ -201,10 +201,43 @@ void MultiGPUManager::workerThread(int workerIndex, const bitrecover::Config::Se
     worker.running = false;
 }
 
+// Called from static callback
+void MultiGPUManager::handleResult(const KeySearchResult& result, int workerIndex) {
+    if (workerIndex < 0 || workerIndex >= static_cast<int>(workers_.size())) {
+        return;
+    }
+    
+    int gpuId = workers_[workerIndex].gpuId;
+    
+    if (resultCallback_) {
+        resultCallback_(result, gpuId);
+    }
+}
+
+// Called from static callback
+void MultiGPUManager::handleStatus(const KeySearchStatus& status, int workerIndex) {
+    if (workerIndex < 0 || workerIndex >= static_cast<int>(workers_.size())) {
+        return;
+    }
+    
+    GPUWorker& w = workers_[workerIndex];
+    w.keysProcessed = status.total;
+    w.speedMKeysPerSec = status.speed / 1000000.0;
+    
+    w.stats.gpuId = w.gpuId;
+    w.stats.keysProcessed = w.keysProcessed;
+    w.stats.speedMKeysPerSec = w.speedMKeysPerSec;
+    w.stats.isRunning = w.running;
+    w.stats.utilizationPercent = 95.0;
+    
+    if (statusCallback_) {
+        statusCallback_(w.stats);
+    }
+}
+
 void MultiGPUManager::stopAll() {
     stopRequested_ = true;
     
-    // Stop all finders
     for (auto& worker : workers_) {
         if (worker.finder) {
             worker.finder->stop();
@@ -212,19 +245,18 @@ void MultiGPUManager::stopAll() {
         worker.running = false;
     }
     
-    // Join all threads
     for (auto& worker : workers_) {
         if (worker.thread && worker.thread->joinable()) {
             worker.thread->join();
         }
     }
     
-    // Clean up
     for (auto& worker : workers_) {
         delete worker.finder;
         worker.finder = nullptr;
-        delete worker.device;
-        worker.device = nullptr;
+        // Note: KeySearchDevice should have virtual destructor but doesn't
+        // This is a design issue in the original library
+        worker.device = nullptr; // Don't delete - let KeyFinder handle it
     }
     
     workers_.clear();
