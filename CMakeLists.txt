@@ -45,9 +45,11 @@ if(UNIX)
     endif()
 endif()
 
-# Default architectures if detection failed
+# Default architectures if detection failed - covers most NVIDIA GPUs from 2015+
+# Format: Just numbers (CMake generates both PTX and SASS automatically)
+# 50=Maxwell, 52=Maxwell, 60=Pascal, 61=Pascal, 70=Volta, 75=Turing, 80=Ampere, 86=Ampere, 89=Ada, 90=Hopper
 if(NOT CUDA_ARCHS)
-    set(CUDA_ARCHS "70;75;80;86;89;90")
+    set(CUDA_ARCHS "52;60;61;70;75;80;86;89;90")
 endif()
 
 message(STATUS "Building for CUDA architectures: ${CUDA_ARCHS}")
