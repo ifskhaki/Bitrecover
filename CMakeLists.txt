@@ -118,6 +118,7 @@ set(LEGACY_SOURCES
     ${PROJECT_ROOT}/CryptoUtil/hash.cpp
     ${PROJECT_ROOT}/secp256k1lib/secp256k1.cpp
     ${PROJECT_ROOT}/util/util.cpp
+    ${PROJECT_ROOT}/cudaUtil/cudaUtil.cpp
     ${PROJECT_ROOT}/Logger/Logger.cpp
     ${PROJECT_ROOT}/CmdParse/CmdParse.cpp
     ${PROJECT_ROOT}/KeyFinder/DeviceManager.cpp
