@@ -40,14 +40,14 @@ if(UNIX)
         set(CUDA_ARCHS "")
         foreach(ARCH ${GPU_ARCHS_LIST})
             string(REPLACE "." "" ARCH_CLEAN ${ARCH})
-            list(APPEND CUDA_ARCHS "sm_${ARCH_CLEAN}")
+            list(APPEND CUDA_ARCHS "${ARCH_CLEAN}")
         endforeach()
     endif()
 endif()
 
 # Default architectures if detection failed
 if(NOT CUDA_ARCHS)
-    set(CUDA_ARCHS "sm_70;sm_75;sm_80;sm_86;sm_89;sm_90")
+    set(CUDA_ARCHS "70;75;80;86;89;90")
 endif()
 
 message(STATUS "Building for CUDA architectures: ${CUDA_ARCHS}")
