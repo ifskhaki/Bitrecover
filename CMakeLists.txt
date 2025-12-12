@@ -54,6 +54,9 @@ endif()
 
 message(STATUS "Building for CUDA architectures: ${CUDA_ARCHS}")
 
+# Define BUILD_CUDA for conditional compilation in DeviceManager.cpp
+add_definitions(-DBUILD_CUDA)
+
 # Include directories
 
 # OpenCL detection
@@ -62,6 +65,7 @@ if(OpenCL_FOUND)
     message(STATUS "OpenCL found: ${OpenCL_INCLUDE_DIRS}")
     include_directories(${OpenCL_INCLUDE_DIRS})
     add_definitions(-DWE_HAVE_OPENCL)
+    add_definitions(-DBUILD_OPENCL)
 else()
     message(WARNING "OpenCL NOT found. OpenCL support will be disabled.")
 endif()
