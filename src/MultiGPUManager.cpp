@@ -72,25 +72,34 @@ bool MultiGPUManager::initializeAllGPUs(const std::string& targetsFile,
         
         // Load targets as vector of strings (addresses)
         std::vector<std::string> targetAddresses;
+        Logger::log(LogLevel::Info, "Opening targets file: " + targetsFile);
         std::ifstream file(targetsFile);
         if (file.is_open()) {
             std::string line;
+            int lineCount = 0;
             while (std::getline(file, line)) {
+                lineCount++;
                 // Remove whitespace
                 line.erase(0, line.find_first_not_of(" \t\r\n"));
-                line.erase(line.find_last_not_of(" \t\r\n") + 1);
+                if (!line.empty() && line.find_last_not_of(" \t\r\n") != std::string::npos) {
+                    line.erase(line.find_last_not_of(" \t\r\n") + 1);
+                }
                 
                 if (!line.empty()) {
                     targetAddresses.push_back(line);
                 }
             }
             file.close();
+            Logger::log(LogLevel::Info, "Read " + std::to_string(lineCount) + " lines, found " + 
+                        std::to_string(targetAddresses.size()) + " addresses");
         } else {
-            Logger::log(LogLevel::Warning, "Could not open targets file: " + targetsFile);
+            Logger::log(LogLevel::Error, "Could not open targets file: " + targetsFile);
+            return false;
         }
         
         if (targetAddresses.empty()) {
-            Logger::log(LogLevel::Warning, "No target addresses loaded");
+            Logger::log(LogLevel::Error, "No target addresses loaded from file: " + targetsFile);
+            return false;
         }
         
         // Initialize workers
