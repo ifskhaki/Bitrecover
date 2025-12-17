@@ -63,8 +63,13 @@ bool ConfigManager::loadFromFile(const std::string& filename) {
             std::string key = line.substr(0, colonPos);
             std::string value = line.substr(colonPos + 1);
             
+            // Remove trailing comma (JSON format)
+            if (!value.empty() && value.back() == ',') {
+                value = value.substr(0, value.length() - 1);
+            }
+            
             // Remove quotes
-            if (value.front() == '"' && value.back() == '"') {
+            if (value.length() >= 2 && value.front() == '"' && value.back() == '"') {
                 value = value.substr(1, value.length() - 2);
             }
             
