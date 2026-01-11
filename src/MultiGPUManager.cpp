@@ -203,8 +203,12 @@ void MultiGPUManager::workerThread(int workerIndex) {
         // Run the search - this is blocking
         worker.finder->run();
         
+    } catch (const KeySearchException& e) {
+        Logger::log(LogLevel::Error, "GPU " + std::to_string(worker.gpuId) + " KeySearchException: " + e.msg);
     } catch (const std::exception& e) {
         Logger::log(LogLevel::Error, "GPU " + std::to_string(worker.gpuId) + " error: " + e.what());
+    } catch (...) {
+        Logger::log(LogLevel::Error, "GPU " + std::to_string(worker.gpuId) + " unknown exception");
     }
     
     worker.running = false;
