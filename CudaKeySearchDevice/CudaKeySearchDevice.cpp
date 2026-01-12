@@ -31,17 +31,14 @@ CudaKeySearchDevice::CudaKeySearchDevice(int device, int threads, int pointsPerT
         throw KeySearchException("At least 1 point per thread required");
     }
 
-    // Specifying blocks on the commandline is depcreated but still supported. If there is no value for
-    // blocks, devide the threads evenly among the multi-processors
+    // Auto-calculate optimal block/thread configuration based on GPU specs
+    // This approach works universally across all NVIDIA GPUs regardless of multiprocessor count
     if(blocks == 0) {
-        if(threads % info.mpCount != 0) {
-            throw KeySearchException("The number of threads must be a multiple of " + util::format("%d", info.mpCount));
-        }
-
-        _threads = threads / info.mpCount;
-
-        _blocks = info.mpCount;
-
+        // Use 2 blocks per SM for better occupancy, with 256 threads per block (CUDA standard)
+        _blocks = info.mpCount * 2;
+        _threads = 256;
+        
+        // Ensure threads don't exceed CUDA limit
         while(_threads > 512) {
             _threads /= 2;
             _blocks *= 2;
