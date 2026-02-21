@@ -246,7 +246,7 @@ void MultiGPUManager::handleStatus(const KeySearchStatus& status, int workerInde
     
     GPUWorker& w = workers_[workerIndex];
     w.keysProcessed = status.total;
-    w.speedMKeysPerSec = status.speed / 1000000.0;
+    w.speedMKeysPerSec = status.speed;
     
     w.stats.gpuId = w.gpuId;
     w.stats.keysProcessed = w.keysProcessed;

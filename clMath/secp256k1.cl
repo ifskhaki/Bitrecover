@@ -45,7 +45,7 @@ __constant unsigned int _INFINITY[8] = {
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF
 };
 
-void printBigInt(const unsigned int x[8])
+void printBigInt(const unsigned int* x)
 {
     printf("%.8x %.8x %.8x %.8x %.8x %.8x %.8x %.8x\n",
         x[0], x[1], x[2], x[3],
@@ -148,7 +148,7 @@ uint256_t sub256k(uint256_t a, uint256_t b, unsigned int* borrow_ptr)
     return c;
 }
 
-bool greaterThanEqualToP(const unsigned int a[8])
+bool greaterThanEqualToP(const unsigned int* a)
 {
     for(int i = 0; i < 8; i++) {
         if(a[i] > _P_MINUS1[i]) {
@@ -161,7 +161,7 @@ bool greaterThanEqualToP(const unsigned int a[8])
     return true;
 }
 
-void multiply256(const unsigned int x[8], const unsigned int y[8], unsigned int out_high[8], unsigned int out_low[8])
+void multiply256(const unsigned int* x, const unsigned int* y, unsigned int* out_high, unsigned int* out_low)
 {
     unsigned int z[16];
 
@@ -204,7 +204,7 @@ void multiply256(const unsigned int x[8], const unsigned int y[8], unsigned int 
 }
 
 
-unsigned int add256(const unsigned int a[8], const unsigned int b[8], unsigned int c[8])
+unsigned int add256(const unsigned int* a, const unsigned int* b, unsigned int* c)
 {
     unsigned int carry = 0;
 
@@ -229,7 +229,7 @@ uint256_t add256k(uint256_t a, uint256_t b, unsigned int* carry_ptr)
     return c;
 }
 
-bool isInfinity(const unsigned int x[8])
+bool isInfinity(const unsigned int* x)
 {
     bool isf = true;
 
@@ -255,7 +255,7 @@ bool isInfinity256k(const uint256_t x)
     return isf;
 }
 
-bool equal(const unsigned int a[8], const unsigned int b[8])
+bool equal(const unsigned int* a, const unsigned int* b)
 {
     for(int i = 0; i < 8; i++) {
         if(a[i] != b[i]) {
@@ -300,7 +300,7 @@ unsigned int readWord256k(__global const uint256_t* ara, int idx, int word)
     return ara[idx].v[word];
 }
 
-unsigned int addP(const unsigned int a[8], unsigned int c[8])
+unsigned int addP(const unsigned int* a, unsigned int* c)
 {
     unsigned int carry = 0;
 
@@ -311,7 +311,7 @@ unsigned int addP(const unsigned int a[8], unsigned int c[8])
     return carry;
 }
 
-unsigned int subP(const unsigned int a[8], unsigned int c[8])
+unsigned int subP(const unsigned int* a, unsigned int* c)
 {
     unsigned int borrow = 0;
     for(int i = 7; i >= 0; i--) {
@@ -360,7 +360,7 @@ uint256_t addModP256k(uint256_t a, uint256_t b)
 }
 
 
-void mulModP(const unsigned int a[8], const unsigned int b[8], unsigned int product_low[8])
+void mulModP(const unsigned int* a, const unsigned int* b, unsigned int* product_low)
 {
     unsigned int high[8];
 
