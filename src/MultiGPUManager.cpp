@@ -107,64 +107,72 @@ bool MultiGPUManager::initializeAllGPUs(const std::string& targetsFile,
         for (size_t i = 0; i < selectedDevices.size(); ++i) {
             const auto& deviceInfo = selectedDevices[i];
             
-            GPUWorker worker;
-            worker.gpuId = deviceInfo.id;
-            worker.running = false;
-            worker.keysProcessed = 0;
-            worker.speedMKeysPerSec = 0.0;
-            
-            // Get GPU parameters with defaults
-            int threads = gpuConfig.threadsPerBlock > 0 ? gpuConfig.threadsPerBlock : 256;
-            int pointsPerThread = gpuConfig.pointsPerThread > 0 ? gpuConfig.pointsPerThread : 256;
-            int blocks = gpuConfig.blocks > 0 ? gpuConfig.blocks : 0; // 0 = auto
-            
-            // Create device based on type
-            if (deviceInfo.type == DeviceManager::DeviceType::CUDA) {
-                worker.device = new CudaKeySearchDevice(static_cast<int>(deviceInfo.physicalId), threads, pointsPerThread, blocks);
-            } else if (deviceInfo.type == DeviceManager::DeviceType::OpenCL) {
+            try {
+                GPUWorker worker;
+                worker.gpuId = deviceInfo.id;
+                worker.running = false;
+                worker.keysProcessed = 0;
+                worker.speedMKeysPerSec = 0.0;
+                
+                // Get GPU parameters with defaults
+                int threads = gpuConfig.threadsPerBlock > 0 ? gpuConfig.threadsPerBlock : 256;
+                int pointsPerThread = gpuConfig.pointsPerThread > 0 ? gpuConfig.pointsPerThread : 256;
+                int blocks = gpuConfig.blocks > 0 ? gpuConfig.blocks : 0; // 0 = auto
+                
+                // Create device based on type
+                if (deviceInfo.type == DeviceManager::DeviceType::CUDA) {
+                    worker.device = new CudaKeySearchDevice(static_cast<int>(deviceInfo.physicalId), threads, pointsPerThread, blocks);
+                } else if (deviceInfo.type == DeviceManager::DeviceType::OpenCL) {
 #ifdef WE_HAVE_OPENCL
-                worker.device = new CLKeySearchDevice(deviceInfo.physicalId, threads, pointsPerThread, blocks);
+                    worker.device = new CLKeySearchDevice(deviceInfo.physicalId, threads, pointsPerThread, blocks);
 #else
-                Logger::log(LogLevel::Warning, "OpenCL support not compiled. Skipping device " + std::to_string(deviceInfo.id));
-                continue;
+                    Logger::log(LogLevel::Warning, "OpenCL support not compiled. Skipping device " + std::to_string(deviceInfo.id));
+                    continue;
 #endif
-            } else {
-                Logger::log(LogLevel::Warning, "Unknown device type");
-                continue;
+                } else {
+                    Logger::log(LogLevel::Warning, "Unknown device type");
+                    continue;
+                }
+                
+                // Generate random start key for this GPU
+                secp256k1::uint256 startKey = rng.generateRandom256ForGPU(i, selectedDevices.size());
+                unsigned int maxWords[8] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 
+                                            0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
+                secp256k1::uint256 endKey(maxWords, secp256k1::uint256::LittleEndian);
+                secp256k1::uint256 stride(1);
+                
+                int compression = 0; // UNCOMPRESSED
+                if (searchConfig.compression == "COMPRESSED") {
+                    compression = 1;
+                } else if (searchConfig.compression == "BOTH") {
+                    compression = 2;
+                }
+                
+                worker.finder = new KeyFinder(startKey, endKey, compression, worker.device, stride);
+                worker.finder->setTargets(targetAddresses);
+                
+                workers_.push_back(std::move(worker));
+                
+                Logger::log(LogLevel::Info, 
+                    "Initialized GPU " + std::to_string(deviceInfo.id) + ": " + deviceInfo.name);
+            } catch (const KeySearchException& e) {
+                Logger::log(LogLevel::Error, "Failed to initialize GPU " + std::to_string(deviceInfo.id) + " (KeySearchException): " + e.msg);
+            } catch (const std::exception& e) {
+                Logger::log(LogLevel::Error, "Failed to initialize GPU " + std::to_string(deviceInfo.id) + ": " + std::string(e.what()));
+            } catch (const DeviceManager::DeviceManagerException& e) {
+                Logger::log(LogLevel::Error, "Failed to initialize GPU " + std::to_string(deviceInfo.id) + ": " + e.msg);
+#ifdef WE_HAVE_OPENCL
+            } catch (const cl::CLException& e) {
+                Logger::log(LogLevel::Error, "Failed to initialize GPU " + std::to_string(deviceInfo.id) + " (OpenCL Error " + std::to_string(e.error) + "): " + e.msg);
+#endif
+            } catch (...) {
+                Logger::log(LogLevel::Error, "Failed to initialize GPU " + std::to_string(deviceInfo.id) + ": Unknown exception occurred");
             }
-            
-            // Generate random start key for this GPU
-            secp256k1::uint256 startKey = rng.generateRandom256ForGPU(i, selectedDevices.size());
-            unsigned int maxWords[8] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 
-                                        0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
-            secp256k1::uint256 endKey(maxWords, secp256k1::uint256::LittleEndian);
-            secp256k1::uint256 stride(1);
-            
-            int compression = 0; // UNCOMPRESSED
-            if (searchConfig.compression == "COMPRESSED") {
-                compression = 1;
-            } else if (searchConfig.compression == "BOTH") {
-                compression = 2;
-            }
-            
-            worker.finder = new KeyFinder(startKey, endKey, compression, worker.device, stride);
-            worker.finder->setTargets(targetAddresses);
-            
-            workers_.push_back(std::move(worker));
-            
-            Logger::log(LogLevel::Info, 
-                "Initialized GPU " + std::to_string(deviceInfo.id) + ": " + deviceInfo.name);
         }
         
         return !workers_.empty();
-    } catch (const KeySearchException& e) {
-        Logger::log(LogLevel::Error, "Failed to initialize GPUs (KeySearchException): " + e.msg);
-        return false;
     } catch (const std::exception& e) {
-        Logger::log(LogLevel::Error, "Failed to initialize GPUs: " + std::string(e.what()));
-        return false;
-    } catch (const DeviceManager::DeviceManagerException& e) {
-        Logger::log(LogLevel::Error, "Failed to initialize GPUs: " + e.msg);
+        Logger::log(LogLevel::Error, "Global error during GPU initialization: " + std::string(e.what()));
         return false;
     }
 }
