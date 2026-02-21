@@ -120,10 +120,10 @@ bool MultiGPUManager::initializeAllGPUs(const std::string& targetsFile,
             
             // Create device based on type
             if (deviceInfo.type == DeviceManager::DeviceType::CUDA) {
-                worker.device = new CudaKeySearchDevice(deviceInfo.id, threads, pointsPerThread, blocks);
+                worker.device = new CudaKeySearchDevice(static_cast<int>(deviceInfo.physicalId), threads, pointsPerThread, blocks);
             } else if (deviceInfo.type == DeviceManager::DeviceType::OpenCL) {
 #ifdef WE_HAVE_OPENCL
-                worker.device = new CLKeySearchDevice(deviceInfo.id, threads, pointsPerThread, blocks);
+                worker.device = new CLKeySearchDevice(deviceInfo.physicalId, threads, pointsPerThread, blocks);
 #else
                 Logger::log(LogLevel::Warning, "OpenCL support not compiled. Skipping device " + std::to_string(deviceInfo.id));
                 continue;
