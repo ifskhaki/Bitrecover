@@ -4,7 +4,7 @@ REM Bitrecover - One-Click Run Script
 REM ============================================
 echo.
 echo ╔═══════════════════════════════════════════════════════════════╗
-echo ║          Bitrecover - Multi-GPU Bitcoin Key Finder          ║
+echo ║          Bitrecover - Multi-GPU Bitcoin Key recover          ║
 echo ╚═══════════════════════════════════════════════════════════════╝
 echo.
 

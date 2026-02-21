@@ -43,9 +43,7 @@ void StatusDisplay::update(const std::vector<bitrecover::GPUStats>& stats) {
 }
 
 void StatusDisplay::printHeader() {
-    std::cout << "╔═══════════════════════════════════════════════════════════════╗\n";
-    std::cout << "║          Bitrecover - Multi-GPU Bitcoin Key Finder          ║\n";
-    std::cout << "╚═══════════════════════════════════════════════════════════════╝\n";
+    std::cout << "          Bitrecover - Multi-GPU Bitcoin Key recover          \n";
 }
 
 void StatusDisplay::printGPUStats(const bitrecover::GPUStats& stats) {
