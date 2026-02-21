@@ -157,6 +157,9 @@ bool MultiGPUManager::initializeAllGPUs(const std::string& targetsFile,
         }
         
         return !workers_.empty();
+    } catch (const KeySearchException& e) {
+        Logger::log(LogLevel::Error, "Failed to initialize GPUs (KeySearchException): " + e.msg);
+        return false;
     } catch (const std::exception& e) {
         Logger::log(LogLevel::Error, "Failed to initialize GPUs: " + std::string(e.what()));
         return false;
