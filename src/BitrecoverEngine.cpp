@@ -187,25 +187,25 @@ int BitrecoverEngine::run() {
     
     Logger::log(LogLevel::Info, "Starting parallel GPU search...");
     
-    // Start status update loop
-    std::thread statusThread([this]() {
-        while (gpuManager_->isAnyRunning()) {
-            auto stats = gpuManager_->getStats();
-            statusDisplay_->update(stats);
-            
-            std::this_thread::sleep_for(
-                std::chrono::milliseconds(config_.display.updateIntervalMs)
-            );
-        }
-    });
-    
-    // Start GPU search
+    // Start GPU search FIRST (launches worker threads)
     gpuManager_->startParallelSearch(config_.search);
     
-    // Wait for status thread
-    if (statusThread.joinable()) {
-        statusThread.join();
+    // Give worker threads a moment to start
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    
+    // Now start status update loop on main thread
+    // This blocks until all workers are done
+    while (gpuManager_->isAnyRunning()) {
+        auto stats = gpuManager_->getStats();
+        statusDisplay_->update(stats);
+        
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(config_.display.updateIntervalMs)
+        );
     }
+    
+    // Wait for all GPU threads to finish
+    gpuManager_->stopAll();
     
     Logger::log(LogLevel::Info, "Search completed");
     
