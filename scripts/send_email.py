@@ -46,8 +46,13 @@ def send_email(subject, body, config):
         server.quit()
         
         print(f"[+] Email sent successfully")
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"[-] Email Authentication Failed: {e}")
+        print("[!] Hint: If using Gmail, make sure you use an 'App Password', not your regular account password.")
+        sys.exit(1)
     except Exception as e:
-        print(f"[-] Email failed: {e}")
+        print(f"[-] Email Error: {e}")
+        sys.exit(1)
 
 def send_startup_notification(sys_info):
     """Send startup notification"""

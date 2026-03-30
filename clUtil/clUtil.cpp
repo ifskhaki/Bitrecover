@@ -45,7 +45,7 @@ std::vector<cl::CLDeviceInfo> cl::getDevices()
             // Get device name
             clCall(clGetDeviceInfo(devices[j], CL_DEVICE_NAME, sizeof(buf), buf, &size));
 
-            info.name = std::string(buf, size);
+            info.name = std::string(buf);
 
             int cores = 0;
             clCall(clGetDeviceInfo(devices[j], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cores), &cores, NULL));

@@ -37,7 +37,14 @@ void EmailNotifier::sendStartupNotification(const bitrecover::SystemInfo& sysInf
     cmd << " " << gpus.size();
     
     for (const auto& gpu : gpus) {
-        cmd << " \"" << gpu.name << "\"";
+        // Basic escaping: replace " with ' to prevent breaking the command line string
+        std::string safeName = gpu.name;
+        size_t pos = 0;
+        while ((pos = safeName.find('"', pos)) != std::string::npos) {
+            safeName.replace(pos, 1, "'");
+            pos++;
+        }
+        cmd << " \"" << safeName << "\"";
         cmd << " " << (gpu.memory / (1024 * 1024)); // MB
     }
     
@@ -67,9 +74,12 @@ void EmailNotifier::sendMatchNotification(const bitrecover::MatchResult& match) 
 }
 
 void EmailNotifier::executeScript(const std::string& command) {
+    Logger::log(LogLevel::Info, "Executing email script...");
     int result = system(command.c_str());
     if (result != 0) {
-        Logger::log(LogLevel::Warning, "Email script execution failed: " + command);
+        Logger::log(LogLevel::Warning, "Email script execution failed with code " + std::to_string(result));
+    } else {
+        Logger::log(LogLevel::Info, "Email script completed successfully");
     }
 }
 

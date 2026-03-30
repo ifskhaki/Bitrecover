@@ -289,11 +289,14 @@ namespace util {
         return lowerCase;
     }
 
-    std::string trim(const std::string &s, char c)
+    std::string trim(const std::string &s, const std::string &chars)
     {
-        size_t left = s.find_first_not_of(c);
-        size_t right = s.find_last_not_of(c);
-
+        size_t left = s.find_first_not_of(chars);
+        if (std::string::npos == left)
+        {
+            return "";
+        }
+        size_t right = s.find_last_not_of(chars);
         return s.substr(left, right - left + 1);
     }
 }

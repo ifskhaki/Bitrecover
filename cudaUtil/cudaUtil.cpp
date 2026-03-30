@@ -9,10 +9,13 @@ cuda::CudaDeviceInfo cuda::getDeviceInfo(int device)
 	cudaError_t err = cudaSuccess;
 
 	err = cudaSetDevice(device);
-
 	if(err) {
 		throw cuda::CudaException(err);
 	}
+
+	// Set required flags before context is initialized.
+	// MapHost is required for CudaAtomicList to work.
+	cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync | cudaDeviceMapHost);
 
 	err = cudaGetDeviceProperties(&properties, device);
 	

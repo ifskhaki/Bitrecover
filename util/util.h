@@ -39,7 +39,7 @@ void removeNewline(std::string &s);
 unsigned int endian(unsigned int x);
 
 std::string toLower(const std::string &s);
-std::string trim(const std::string &s, char c=' ');
+std::string trim(const std::string &s, const std::string &chars = " \t\r\n");
 
 }
 

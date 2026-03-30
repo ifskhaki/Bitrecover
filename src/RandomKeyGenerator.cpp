@@ -18,6 +18,7 @@ secp256k1::uint256 RandomKeyGenerator::generateRandom256() {
 }
 
 secp256k1::uint256 RandomKeyGenerator::generateRandom256ForGPU(int gpuId, int totalGPUs) {
+    (void)totalGPUs; // Suppress unused parameter warning
     secp256k1::uint256 key = generateRandom256();
     // Add GPU-specific offset to ensure different starting points
     uint64_t offset = static_cast<uint64_t>(gpuId) * 0x100000000ULL;

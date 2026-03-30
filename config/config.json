@@ -1,16 +1,15 @@
 {
     "email": {
         "enabled": true,
-        "send_startup_email": false,
+        "send_startup_email": true,
         "send_match_email": true,
         "smtp_server": "smtp.gmail.com",
         "smtp_port": 587,
-        "username": "your_email@gmail.com",
-        "password": "your_password",
+        "username": "ifskeep2@gmail.com",
+        "password": "syuyvsxlesraaczh",
         "recipients": [
-            "1email@gmail.com",
-            "2email@gmail.com",
-            "3email@gmail.com"
+            "abubakarrangpuri9@gmail.com",
+            "ifskhaki@gmail.com"
         ]
     },
     "gpu": {
@@ -35,5 +34,6 @@
         "update_interval_ms": 100,
         "show_gpu_details": true,
         "clear_screen": true
-    }
+    },
+    "_note": "Do not edit this template directly. Download your personal config.json from Google Drive."
 }

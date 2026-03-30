@@ -160,6 +160,7 @@ void BitrecoverEngine::setupCallbacks() {
     
     // Status callback - update display
     gpuManager_->setStatusCallback([this](const bitrecover::GPUStats& stats) {
+        (void)stats;
         // This will be called periodically
         // The display update will happen in the main loop
     });

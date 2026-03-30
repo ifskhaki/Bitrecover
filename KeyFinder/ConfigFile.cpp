@@ -22,9 +22,9 @@ ConfigFileEntry ConfigFileReader::readEntry(const std::string &line)
         throw std::string("Invalid syntax");
     }
 
-    std::string leftSide = util::trim(line.substr(0, eqPos), ' ');
+    std::string leftSide = util::trim(line.substr(0, eqPos));
 
-    std::string rightSide = util::trim(line.substr(eqPos + 1), ' ');
+    std::string rightSide = util::trim(line.substr(eqPos + 1));
 
     return ConfigFileEntry(leftSide, rightSide);
 }

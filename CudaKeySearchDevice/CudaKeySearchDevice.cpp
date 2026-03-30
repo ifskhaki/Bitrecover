@@ -69,11 +69,17 @@ void CudaKeySearchDevice::init(const secp256k1::uint256 &start, int compression,
 
     cudaCall(cudaSetDevice(_device));
 
-    // Block on kernel calls
-    cudaCall(cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync));
+    // Attempt to set device flags (may fail if context already exists)
+    cudaError_t flagsErr = cudaSetDeviceFlags(cudaDeviceScheduleBlockingSync | cudaDeviceMapHost);
+    if(flagsErr != cudaSuccess) {
+        Logger::log(LogLevel::Info, "Note: Could not set device flags (likely because CUDA context already initialized).");
+    }
 
-    // Use a larger portion of shared memory for L1 cache
-    cudaCall(cudaDeviceSetCacheConfig(cudaFuncCachePreferL1));
+    // Use a larger portion of shared memory for L1 cache (optimization only, may fail on some architectures like Turing)
+    cudaError_t cacheErr = cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
+    if(cacheErr != cudaSuccess) {
+        Logger::log(LogLevel::Info, "Note: Could not set L1 cache preference (expected on some architectures such as Turing).");
+    }
 
     generateStartingPoints();
 

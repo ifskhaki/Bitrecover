@@ -75,9 +75,11 @@ void StatusDisplay::showMatch(const bitrecover::MatchResult& match) {
 
 void StatusDisplay::clear() {
 #ifdef _WIN32
-    system("cls");
+    int res = system("cls");
+    (void)res;
 #else
-    system("clear");
+    int res = system("clear");
+    (void)res;
 #endif
 }
 

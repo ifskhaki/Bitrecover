@@ -1,4 +1,5 @@
 #include "DeviceManager.h"
+#include "util.h"
 
 #ifdef BUILD_CUDA
 #include "cudaUtil.h"
@@ -21,7 +22,7 @@ std::vector<DeviceManager::DeviceInfo> DeviceManager::getDevices()
 
         for(int i = 0; i < cudaDevices.size(); i++) {
             DeviceManager::DeviceInfo device;
-            device.name = cudaDevices[i].name;
+            device.name = util::trim(cudaDevices[i].name);
             device.type = DeviceType::CUDA;
             device.id = deviceId;
             device.physicalId = cudaDevices[i].id;
@@ -43,7 +44,7 @@ std::vector<DeviceManager::DeviceInfo> DeviceManager::getDevices()
 
         for(int i = 0; i < clDevices.size(); i++) {
             DeviceManager::DeviceInfo device;
-            device.name = clDevices[i].name;
+            device.name = util::trim(clDevices[i].name);
             device.type = DeviceType::OpenCL;
             device.id = deviceId;
             device.physicalId = (uint64_t)clDevices[i].id;

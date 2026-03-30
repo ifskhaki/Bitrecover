@@ -53,14 +53,41 @@ bool MultiGPUManager::initializeAllGPUs(const std::string& targetsFile,
             return false;
         }
         
+        // Filter out OpenCL devices if a CUDA device exists on the same physical hardware (same name/memory)
+        std::vector<DeviceManager::DeviceInfo> uniqueDevices;
+        std::set<std::string> cudaDeviceNames;
+        
+        // First pass: identify all CUDA devices
+        for (const auto& dev : devices) {
+            if (dev.type == DeviceManager::DeviceType::CUDA) {
+                cudaDeviceNames.insert(dev.name);
+                uniqueDevices.push_back(dev);
+            }
+        }
+        
+        // Second pass: add OpenCL devices ONLY if they don't match a CUDA device
+        for (const auto& dev : devices) {
+            if (dev.type == DeviceManager::DeviceType::OpenCL) {
+                if (cudaDeviceNames.find(dev.name) == cudaDeviceNames.end()) {
+                    uniqueDevices.push_back(dev);
+                } else {
+                    Logger::log(LogLevel::Info, "Skipping OpenCL device '" + dev.name + "' because a CUDA device is already using it.");
+                }
+            }
+        }
+
         // Filter devices based on gpuConfig
         std::vector<DeviceManager::DeviceInfo> selectedDevices;
         if (gpuConfig.useAllGPUs || gpuConfig.gpuIds.empty()) {
-            selectedDevices = devices;
+            selectedDevices = uniqueDevices;
         } else {
             for (int id : gpuConfig.gpuIds) {
-                if (id >= 0 && id < static_cast<int>(devices.size())) {
-                    selectedDevices.push_back(devices[id]);
+                // Find device with this ID
+                for (const auto& dev : uniqueDevices) {
+                    if (dev.id == id) {
+                        selectedDevices.push_back(dev);
+                        break;
+                    }
                 }
             }
         }
